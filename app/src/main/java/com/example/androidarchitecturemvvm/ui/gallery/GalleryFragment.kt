@@ -5,8 +5,10 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.View
 import androidx.appcompat.widget.SearchView
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.paging.LoadState
 import com.example.androidarchitecturemvvm.R
 import com.example.androidarchitecturemvvm.databinding.FragmentGalleryBinding
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,6 +27,7 @@ class GalleryFragment : Fragment(R.layout.fragment_gallery) {
         val adapter = UnsplashPhotoAdapter()
         binding.apply {
             unsplashImageRv.setHasFixedSize(true)
+            unsplashImageRv.itemAnimator = null
             unsplashImageRv.adapter = adapter.withLoadStateHeaderAndFooter(
                 header = UnsplashPhotoLoadStateAdapter { adapter.retry() },
                 footer = UnsplashPhotoLoadStateAdapter { adapter.retry() }
@@ -32,6 +35,26 @@ class GalleryFragment : Fragment(R.layout.fragment_gallery) {
         }
         viewModel.photos.observe(viewLifecycleOwner) {
             adapter.submitData(viewLifecycleOwner.lifecycle, it)
+        }
+
+        adapter.addLoadStateListener { loadState ->
+            binding.apply {
+                progressBar.isVisible = loadState.source.refresh is LoadState.Loading
+                unsplashImageRv.isVisible = loadState.source.refresh is LoadState.NotLoading
+                retryBtn.isVisible = loadState.source.refresh is LoadState.Error
+                textViewError.isVisible = loadState.source.refresh is LoadState.Error
+
+                // for empty view
+                if (loadState.source.refresh is LoadState.NotLoading &&
+                    loadState.append.endOfPaginationReached &&
+                    adapter.itemCount < 1
+                ) {
+                    unsplashImageRv.isVisible = false
+                    textViewEmpty.isVisible = true
+                } else {
+                    textViewEmpty.isVisible = false
+                }
+            }
         }
 
         setHasOptionsMenu(true)
@@ -60,6 +83,7 @@ class GalleryFragment : Fragment(R.layout.fragment_gallery) {
             }
         })
     }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
